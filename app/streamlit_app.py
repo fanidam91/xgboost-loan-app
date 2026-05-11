@@ -1,157 +1,112 @@
-import os
-import joblib
 import streamlit as st
 import pandas as pd
+import joblib
+import os
 
+# =========================
+# Page Config
+# =========================
 st.set_page_config(
-    page_title="XGBoost Loan Approval Predictor",
-    page_icon="🏦",
+    page_title="XGBoost Loan Prediction App",
+    page_icon="💰",
     layout="wide"
 )
 
-st.title("🏦 XGBoost Loan Approval Predictor")
-st.write("🤖 **Model Used:** XGBoost Classifier")
+# =========================
+# Project Paths
+# =========================
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODEL_PATH = os.path.join(BASE_DIR, "models", "xgboost_loan_model.pkl")
 
-st.info("""
-This app uses XGBoost to predict whether a loan may be approved or rejected.
+# =========================
+# Load Model
+# =========================
+@st.cache_resource
+def load_model():
+    return joblib.load(MODEL_PATH)
 
-✅ Credit Score Slider  
-✅ Credit History Toggle  
-✅ Approval Probability  
-✅ Risk Meter  
-✅ Feature Importance Chart  
-✅ AI Explanation  
-""")
+model = load_model()
 
-# Load model
-current_dir = os.path.dirname(__file__)
-model_path = os.path.join(current_dir, "..", "models", "xgboost_loan_model.pkl")
+# =========================
+# App Title
+# =========================
+st.title("💰 XGBoost Loan Approval Prediction App")
+st.write("Enter customer details below and the AI model will predict whether the loan may be approved.")
 
-if not os.path.exists(model_path):
-    st.error(f"❌ Model file not found: {model_path}")
-    st.stop()
-
-model = joblib.load(model_path)
-st.success("✅ Model loaded successfully")
-
-# Inputs
-st.header("📋 Enter Applicant Details")
+# =========================
+# Input Fields
+# =========================
+st.subheader("📝 Applicant Details")
 
 col1, col2 = st.columns(2)
 
 with col1:
-    gender = st.selectbox("Gender", ["Male", "Female"])
-    married = st.selectbox("Married", ["Yes", "No"])
-    applicant_income = st.slider("Applicant Income", 1000, 50000, 5000)
-    loan_amount = st.slider("Loan Amount", 10000, 1000000, 200000)
+    income = st.number_input("Annual Income", min_value=0, value=50000, step=1000)
+    credit_score = st.number_input("Credit Score", min_value=300, max_value=900, value=700, step=10)
+    loan_amount = st.number_input("Loan Amount", min_value=0, value=200000, step=5000)
 
 with col2:
-    credit_score = st.slider("Credit Score", 300, 900, 750)
-    good_credit_history = st.toggle("Good Credit History", value=True)
-    coapplicant_income = st.slider("Coapplicant Income", 0, 50000, 2000)
-    existing_emi = st.slider("Existing Monthly EMI", 0, 20000, 1000)
+    employment_years = st.number_input("Employment Years", min_value=0, max_value=50, value=3, step=1)
+    existing_debt = st.number_input("Existing Debt", min_value=0, value=10000, step=1000)
 
-# Encoding
-gender_encoded = 1 if gender == "Male" else 0
-married_encoded = 1 if married == "Yes" else 0
-credit_history = 1 if good_credit_history else 0
+# =========================
+# Prediction Input
+# IMPORTANT: Column names must match training data exactly
+# =========================
+input_data = pd.DataFrame([{
+    "income": income,
+    "credit_score": credit_score,
+    "loan_amount": loan_amount,
+    "employment_years": employment_years,
+    "existing_debt": existing_debt
+}])
 
-# Must match your trained model columns
-input_data = pd.DataFrame({
-    "Gender": [gender_encoded],
-    "Married": [married_encoded],
-    "ApplicantIncome": [applicant_income],
-    "LoanAmount": [loan_amount],
-    "Credit_History": [credit_history]
-})
+st.subheader("📊 Input Data Preview")
+st.dataframe(input_data, width="stretch")
 
-st.subheader("🔍 Model Input Data")
-st.dataframe(input_data, use_container_width=True)
-
-st.subheader("📊 Extra Business Inputs")
-extra_data = pd.DataFrame({
-    "Credit Score": [credit_score],
-    "Coapplicant Income": [coapplicant_income],
-    "Existing EMI": [existing_emi]
-})
-st.dataframe(extra_data, use_container_width=True)
-
-# Prediction
-if st.button("🚀 Predict Loan Approval"):
+# =========================
+# Predict Button
+# =========================
+if st.button("🔮 Predict Loan Approval"):
     prediction = model.predict(input_data)[0]
+    probability = model.predict_proba(input_data)[0]
 
-    if hasattr(model, "predict_proba"):
-        probability = model.predict_proba(input_data)[0][1]
+    approved_probability = probability[1] * 100
+    rejected_probability = probability[0] * 100
+
+    if prediction == 1:
+        st.success("✅ Loan Approved")
     else:
-        probability = 1.0 if prediction == 1 else 0.0
+        st.error("❌ Loan Rejected")
 
-    st.header("✅ Prediction Result")
+    st.write(f"✅ Approval Probability: **{approved_probability:.2f}%**")
+    st.write(f"❌ Rejection Probability: **{rejected_probability:.2f}%**")
 
-    colA, colB, colC = st.columns(3)
+# =========================
+# Feature Importance
+# =========================
+st.subheader("📌 Feature Importance")
 
-    with colA:
-        if prediction == 1:
-            st.success("✅ Loan Approved")
-            st.balloons()
-        else:
-            st.error("❌ Loan Rejected")
+try:
+    booster = model.get_booster()
+    importance = booster.get_score(importance_type="weight")
 
-    with colB:
-        st.metric("Approval Probability", f"{probability * 100:.2f}%")
+    if importance:
+        importance_df = pd.DataFrame({
+            "Feature": list(importance.keys()),
+            "Importance": list(importance.values())
+        }).sort_values(by="Importance", ascending=False)
 
-    with colC:
-        if probability >= 0.75:
-            risk = "Low Risk 🟢"
-        elif probability >= 0.50:
-            risk = "Medium Risk 🟡"
-        else:
-            risk = "High Risk 🔴"
+        st.dataframe(importance_df, width="stretch")
+        st.bar_chart(importance_df.set_index("Feature"))
+    else:
+        st.info("Feature importance is not available for this model.")
 
-        st.metric("Loan Risk Level", risk)
+except Exception as e:
+    st.warning(f"Feature importance not available: {e}")
 
-    st.progress(int(probability * 100))
-
-    st.info("""
-    🧠 AI Explanation:
-
-    XGBoost checks applicant income, loan amount, marital status, gender, and credit history.
-    It combines many decision trees behind the scenes to make the final prediction.
-    """)
-
-# Clean XGBoost explanation
-st.header("🌳 How XGBoost Makes Decisions")
-
-st.info("""
-XGBoost works by combining many small decision trees together.
-
-Example AI logic:
-
-IF:
-- Credit History is GOOD
-- Income is HIGH
-- Loan Amount is REASONABLE
-
-➡️ Loan gets APPROVED ✅
-
-ELSE:
-
-➡️ Loan gets REJECTED ❌
-""")
-
-# Feature importance without Graphviz
-st.header("📌 Feature Importance")
-
-importance_data = pd.DataFrame({
-    "Feature": [
-        "Credit History",
-        "Applicant Income",
-        "Loan Amount",
-        "Married",
-        "Gender"
-    ],
-    "Importance": [40, 25, 20, 10, 5]
-})
-
-st.bar_chart(importance_data.set_index("Feature"))
-
-st.caption("Built with Streamlit + XGBoost")
+# =========================
+# Footer
+# =========================
+st.markdown("---")
+st.caption("Built with Streamlit, XGBoost and Python 🚀")
