@@ -12,4 +12,7 @@ cd ../app
 streamlit run streamlit_app.py
 
 
-<img width="950" height="592" alt="image" src="https://github.com/user-attachments/assets/95b613bd-1634-4b94-afc0-292f87808020" />
+<img width="608" height="377" alt="SA" src="https://github.com/user-attachments/assets/64980e89-8adf-4b66-92be-a8692bbefec1" />
+
+<img width="1768" height="886" alt="SA2" src="https://github.com/user-attachments/assets/e4cba2c1-74ca-49b7-bc44-b44f734d8f24" />
+
