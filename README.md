@@ -16,3 +16,6 @@ streamlit run streamlit_app.py
 
 <img width="1768" height="886" alt="SA2" src="https://github.com/user-attachments/assets/e4cba2c1-74ca-49b7-bc44-b44f734d8f24" />
 
+<img width="923" height="341" alt="image" src="https://github.com/user-attachments/assets/2e81bfe9-4069-4d81-9508-9aca516642ed" />
+
+
